@@ -1,0 +1,310 @@
+//ADD inkove url from API gateway before using this.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Market Intelligence</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Modern Financial "Dark Mode" Palette */
+        :root { 
+            --bg: #0f172a;           
+            --card: #1e293b;         
+            --primary: #38bdf8;      
+            --text: #f1f5f9;         
+            --lbl: #94a3b8;          
+            --accent: #334155;       
+            --gold: #fbbf24;        
+            --sell: #ff4d4d;         
+            --buy: #22c55e;          
+            --chart-bg: rgba(56, 189, 248, 0.1); 
+        }
+
+        body { 
+            font-family: 'Inter','Segoe UI', system-ui, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            line-height: 1.5; 
+            padding: 20px; 
+            margin: 0;
+        }
+
+        .container { max-width: 1300px; margin: auto; }
+
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            border-bottom: 1px solid var(--accent); 
+            padding-bottom: 15px; 
+            margin-bottom: 20px; 
+        }
+
+        h1 { color: var(--text); margin: 0; font-size: 1.8rem; letter-spacing: -0.025em; }
+        
+        .currency-bar { 
+            background: #1e293b; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            border: 1px solid var(--accent); 
+            display: flex; 
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .calendar-section { 
+            background: rgba(30, 41, 59, 0.5); 
+            padding: 15px; 
+            border-radius: 12px; 
+            margin-bottom: 20px; 
+            border: 1px solid var(--accent); 
+        }
+
+        .cal-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; }
+        .cal-chip { 
+            background: var(--card); 
+            padding: 8px 15px; 
+            border-radius: 8px; 
+            border-top: 2px solid var(--primary); 
+            min-width: 140px; 
+            border-left: 1px solid var(--accent);
+            border-right: 1px solid var(--accent);
+            border-bottom: 1px solid var(--accent);
+        }
+
+        .control-bar { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            background: var(--card); 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid var(--accent); 
+        }
+
+        input { 
+            flex: 1; 
+            padding: 12px; 
+            background: #0f172a; 
+            border: 1px solid var(--accent); 
+            color: #fff; 
+            border-radius: 6px; 
+            outline: none;
+        }
+        input:focus { border-color: var(--primary); }
+
+        button { 
+            padding: 12px 25px; 
+            background: var(--primary); 
+            color: #0f172a;
+            border: none; 
+            border-radius: 6px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+
+        .stock-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        
+        .card { 
+            background: var(--card); 
+            border-radius: 12px; 
+            padding: 20px; 
+            border: 1px solid var(--accent); 
+            position: relative; 
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .card:hover { border-color: var(--primary); transform: translateY(-2px); }
+        
+        .ticker { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+        .price { font-size: 1.5rem; float: right; font-weight: 600; }
+
+        table { width: 100%; margin-top: 15px; font-size: 0.85rem; border-collapse: collapse; }
+        td { padding: 8px 0; border-bottom: 1px solid var(--accent); }
+        .lbl { color: var(--lbl); }
+        .val { text-align: right; font-weight: 600; color: var(--text); }
+        
+        .ai-box { 
+            margin-top: 15px; 
+            padding: 12px; 
+            background: rgba(15, 23, 42, 0.6); 
+            border-radius: 6px; 
+            border-left: 4px solid var(--gold); 
+            font-size: 0.9rem;
+        }
+
+        .del-btn { position: absolute; top: 10px; right: 10px; color: var(--lbl); cursor: pointer; font-size: 1.2rem; }
+        .del-btn:hover { color: var(--sell); }
+
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; margin-left: 8px; text-transform: uppercase; }
+        .buy { background: var(--buy); color: #052e16; }
+        .sell { background: var(--sell); color: #fef2f2; }
+        .hold { background: var(--gold); color: #451a03; }
+        
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { height: 6px; width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+            <h1>Real-Time Triangulated Market Intelligence</h1>
+            <small style="color: var(--primary); font-size: 0.75rem; font-weight: 600;">
+                USER ID: <span id="userDisplay">--</span>
+            </small>
+        </div>
+        <button onclick="fetchPortfolio()">↻ REFRESH DATA</button>
+    </div>
+        
+    <div class="currency-bar">
+        <span>USD/INR: <strong id="fxRate" style="color: var(--primary)">₹--</strong></span>
+        <span id="fxAdvice" style="color:var(--gold); font-weight:bold;">Calculating Trend...</span>
+    </div>
+
+    <div class="calendar-section">
+        <div class="lbl" style="margin-bottom:10px; font-weight: bold; color: var(--text);">📅 30-Day Earnings Timeline</div>
+        <div id="masterCalendar" class="cal-grid">-- No Reports --</div>
+    </div>
+
+    <div class="control-bar">
+        <div class="lbl" style="font-weight: bold; color: var(--text);">Add New Asset</div>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g. NVDA)">
+            <button id="addBtn">+ ADD ASSET</button>
+        </div>
+    </div>
+
+    <div id="stockGrid" class="stock-grid"></div>
+</div>
+
+<script>
+    const API_URL = "INVOKE_URL"; // removed this url for safety, not to be used by others
+    const USER_ID = localStorage.getItem('sentinel_uid') || `USER_${Math.floor(Math.random()*9999)}`;
+    localStorage.setItem('sentinel_uid', USER_ID);
+    document.getElementById('userDisplay').innerText = USER_ID;
+
+    async function fetchPortfolio() {
+        const grid = document.getElementById('stockGrid');
+        grid.innerHTML = "<p style='color: var(--primary)'>Connecting to secure data stream...</p>";
+        try {
+            const res = await fetch(`${API_URL}/ticker/portfolio?user_id=${USER_ID}`);
+            const data = await res.json();
+            
+            if (data.forex) {
+                document.getElementById('fxRate').innerText = `₹${Number(data.forex).toFixed(2)}`;
+            }
+
+            const adviceEl = document.getElementById('fxAdvice');
+            if (adviceEl) {
+                adviceEl.innerText = data.fx_advice || "No trend data";
+                adviceEl.style.color = (data.fx_advice && data.fx_advice.includes("CONVERT")) ? "var(--buy)" : "var(--gold)";
+            }
+            
+            const cal = document.getElementById('masterCalendar');
+            cal.innerHTML = data.earnings_calendar_30d.map(e => `
+                <div class="cal-chip"><strong>${e.ticker}</strong><br><small style="color:var(--lbl)">${e.date}</small></div>
+            `).join('') || "-- No Reports --";
+
+            grid.innerHTML = data.portfolio.map(s => `
+                <div class="card">
+                    <span class="del-btn" onclick="deleteTicker('${s.ticker}')">×</span>
+                    <div class="card-header">
+                        <div class="ticker-wrap" style="display:inline-block">
+                            <span class="ticker">${s.ticker}</span>
+                            <span class="badge ${s.recommendation.toLowerCase()}">${s.recommendation}</span>
+                        </div>
+                        <span class="price">$${s.current_price.toFixed(2)}</span>
+                    </div>
+                
+                    <div class="chart-container" style="height: 120px; width: 100%; margin: 15px 0;">
+                        <canvas id="chart_${s.ticker}"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr><td class="lbl">Analysis</td><td class="val" style="color:var(--primary)">${s.strength_weakness}</td></tr>
+                        <tr><td class="lbl">52W High / Low</td><td class="val">$${s.tech.h52} / $${s.tech.l52}</td></tr>
+                        <tr><td class="lbl">ATH / ATL</td><td class="val">$${s.tech.ath.toFixed(2)} / $${s.tech.atl.toFixed(2)}</td></tr>
+                        <tr><td class="lbl">MA50 / MA200</td><td class="val">$${s.tech.ma50.toFixed(2)} / $${s.tech.ma200.toFixed(2)}</td></tr>
+                        <tr><td class="lbl">P/E / EPS</td><td class="val">${s.fundamentals.pe.toFixed(2)} / ${s.fundamentals.eps}</td></tr>
+                        <tr><td class="lbl">Debt / Cash Flow</td><td class="val">${(s.fundamentals.debt/1e9).toFixed(1)}B / ${(s.fundamentals.cash_flow/1e9).toFixed(1)}B</td></tr>
+                        <tr><td class="lbl">Earnings Analysis</td><td class="val" style="color:var(--primary)">${s.fundamentals.earnings_status}</td></tr>
+                        <tr><td class="lbl">Geopolitical Risk</td><td class="val" style="color:${s.geo_status=='STABLE'?'var(--buy)':'var(--sell)'}">${s.geo_status}</td></tr>
+                        <tr><td class="lbl">News Sentiment</td><td class="val"><span class="badge ${s.recent_news_sentiment === 'POSITIVE' ? 'buy' : (s.recent_news_sentiment === 'NEGATIVE' ? 'sell' : 'hold')}">${s.recent_news_sentiment || 'NEUTRAL'}</span></td></tr>
+                    </table>
+
+                    <div class="ai-box">
+                        <small style="color:var(--gold); font-weight:bold; letter-spacing:1px;">AI STRATEGY</small><br>
+                        <div style="margin-top:5px;">
+                            ${s.ai_insight.replace('POSITIVE', '<span style="color:var(--buy); font-weight:bold">POSITIVE</span>').replace('NEGATIVE', '<span style="color:var(--sell); font-weight:bold">NEGATIVE</span>')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            data.portfolio.forEach(s => {
+                const ctx = document.getElementById(`chart_${s.ticker}`).getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: s.chart_labels,
+                        datasets: [{
+                            label: `${s.ticker} Price`,
+                            data: s.chart_data,
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        scales: { x: { display: false }, y: { display: false } },
+                        plugins: { legend: { display: false } },
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            });
+        } catch (e) { grid.innerHTML = "<p style='color:var(--sell)'>Error Syncing with API.</p>"; }
+    }
+
+    document.getElementById('addBtn').onclick = async () => {
+        const t = document.getElementById('tickerInput').value.toUpperCase();
+        if(!t) return alert("Please enter a ticker symbol");
+        try {
+            await fetch(`${API_URL}/ticker`, {
+                method: "POST",
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: USER_ID, 
+                    ticker: t, 
+                    asset_type: "STOCK"
+                })
+            });
+            document.getElementById('tickerInput').value = "";
+            fetchPortfolio();
+        } catch (e) {
+            console.error("Failed to add asset:", e);
+        }
+    };
+
+    async function deleteTicker(t) {
+        if(!confirm(`Delete ${t}?`)) return;
+        await fetch(`${API_URL}/ticker`, {
+            method: "DELETE",
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: USER_ID, ticker: t})
+        });
+        fetchPortfolio();
+    }
+
+    fetchPortfolio();
+</script>
+</body>
+</html>
